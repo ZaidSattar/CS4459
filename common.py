@@ -1,19 +1,22 @@
 import socket
 
-# Constants
+# these are the ports we use for the primary and backup servers
 PRIMARY_PORT = 5000
 BACKUP_PORT = 5001
+# how often we check if the primary server is still alive
 HEARTBEAT_INTERVAL = 2  # seconds
+# how many missed heartbeats before we assume the primary is dead
 HEARTBEAT_TIMEOUT = 3   # number of missed heartbeats
+# how much data we can receive at once
 BUFFER_SIZE = 1024
 
 def send_message(sock: socket.socket, message: str) -> None:
     """
-    Send a message through a socket connection.
+    send a message through a socket connection.
     
     Args:
-        sock: The socket to send the message through
-        message: The message to send
+        sock: the socket to send the message through
+        message: the message to send
     """
     try:
         sock.sendall(message.encode('utf-8'))
@@ -23,13 +26,13 @@ def send_message(sock: socket.socket, message: str) -> None:
 
 def receive_message(sock: socket.socket) -> str:
     """
-    Receive a message from a socket connection.
+    receive a message from a socket connection.
     
     Args:
-        sock: The socket to receive the message from
+        sock: the socket to receive the message from
         
     Returns:
-        The received message as a string
+        the received message as a string
     """
     try:
         return sock.recv(BUFFER_SIZE).decode('utf-8')
@@ -39,34 +42,34 @@ def receive_message(sock: socket.socket) -> str:
 
 def format_heartbeat() -> str:
     """
-    Format a heartbeat message.
+    create a heartbeat message to check if the primary server is alive.
     
     Returns:
-        A formatted heartbeat message string
+        a formatted heartbeat message string
     """
     return "HEARTBEAT"
 
 def is_heartbeat(message: str) -> bool:
     """
-    Check if a message is a heartbeat message.
+    check if a message is a heartbeat message.
     
     Args:
-        message: The message to check
+        message: the message to check
         
     Returns:
-        True if the message is a heartbeat, False otherwise
+        true if the message is a heartbeat, false otherwise
     """
     return message.strip() == "HEARTBEAT"
 
 def broadcast(message: str, sender_socket: socket.socket, sockets: list) -> None:
     """
-    Broadcast a message to all connected sockets except the sender.
+    send a message to all connected clients except the sender.
     
     Args:
-        message: The message to broadcast
-        sender_socket: The socket of the sender
-        sockets: The list of connected sockets
+        message: the message to send
+        sender_socket: the socket of the person who sent the message
+        sockets: all the connected clients
     """
     for socket in sockets:
-        if socket != sender_socket:  # Don't send back to sender
+        if socket != sender_socket:  # don't send the message back to the sender
             send_message(socket, message) 

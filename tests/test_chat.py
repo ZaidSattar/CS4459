@@ -6,53 +6,71 @@ from common import PRIMARY_PORT, send_message, receive_message
 
 class TestChatSystem(unittest.TestCase):
     def setUp(self):
-        """Set up test environment before each test."""
+        """set up the test environment before each test."""
+        # keep track of all connected clients
         self.clients = []
+        # thread that runs our mock server
         self.server_thread = None
+        # socket for our mock server
         self.server_socket = None
+        # flag to control the server's main loop
         self.is_running = True
-        self.test_port = PRIMARY_PORT  # Default port
+        # port to use for testing
+        self.test_port = PRIMARY_PORT  # default port
 
     def tearDown(self):
-        """Clean up after each test."""
+        """clean up after each test."""
+        # stop the server
         self.is_running = False
+        # close all client connections
         for client in self.clients:
             try:
                 client.close()
             except:
                 pass
+        # close the server socket
         if self.server_socket:
             self.server_socket.close()
+        # wait for the server thread to finish
         if self.server_thread:
             self.server_thread.join()
-        # Add a small delay to ensure port is released
+        # wait a bit to make sure the port is free
         time.sleep(0.1)
 
     def mock_server(self, port=None):
-        """Mock server implementation for testing."""
+        """create a simple server for testing."""
         if port:
             self.test_port = port
+        # create a socket to listen for connections
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow reuse of address
+        # allow reusing the port if it's still in use
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # bind to all network interfaces on our port
         self.server_socket.bind(('', self.test_port))
+        # start listening for connections
         self.server_socket.listen(5)
         
+        # main loop to accept new connections
         while self.is_running:
             try:
+                # wait for a new connection
                 client_sock, _ = self.server_socket.accept()
+                # add the client to our list
                 self.clients.append(client_sock)
+                # start a thread to handle this client's messages
                 threading.Thread(target=self.handle_client, args=(client_sock,), daemon=True).start()
             except:
                 break
 
     def handle_client(self, client_socket):
-        """Handle messages from a single client."""
+        """handle messages from a single client."""
         while self.is_running:
             try:
+                # get a message from the client
                 message = receive_message(client_socket)
                 if not message:
                     break
-                # Broadcast to all clients
+                # send the message to all other clients
                 for client in self.clients:
                     if client != client_socket:
                         try:
@@ -62,6 +80,7 @@ class TestChatSystem(unittest.TestCase):
                                 self.clients.remove(client)
             except:
                 break
+        # clean up when the client disconnects
         try:
             client_socket.close()
         except:
@@ -70,31 +89,34 @@ class TestChatSystem(unittest.TestCase):
             self.clients.remove(client_socket)
 
     def test_basic_chat(self):
-        """Test basic chat functionality between two clients."""
-        # Start mock server on a different port
+        """test that two clients can send messages to each other."""
+        # start our mock server on a different port
         self.test_port = PRIMARY_PORT + 100
         self.server_thread = threading.Thread(target=self.mock_server, daemon=True)
         self.server_thread.start()
-        time.sleep(0.5)  # Wait for server to start
+        # wait for the server to start
+        time.sleep(0.5)
 
-        # Create two client connections
+        # create two client connections
         client1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
+        # connect both clients to the server
         client1.connect(('localhost', self.test_port))
         client2.connect(('localhost', self.test_port))
         
-        # Send message from client1
+        # send a message from client1
         test_message = "Hello from client1"
         send_message(client1, test_message)
         
-        # Receive on client2
+        # check if client2 received the message
         try:
             received = receive_message(client2)
             self.assertEqual(received, test_message, "Message not received correctly")
         except:
-            pass  # Ignore errors from closed sockets
+            pass  # ignore errors from closed sockets
         
+        # clean up
         try:
             client1.close()
         except:
@@ -105,36 +127,37 @@ class TestChatSystem(unittest.TestCase):
             pass
 
     def test_multiple_clients(self):
-        """Test chat functionality with multiple clients."""
-        # Start mock server on a different port
+        """test that messages are sent to all connected clients."""
+        # start our mock server on a different port
         self.test_port = PRIMARY_PORT + 200
         self.server_thread = threading.Thread(target=self.mock_server, daemon=True)
         self.server_thread.start()
-        time.sleep(0.5)  # Wait for server to start
+        # wait for the server to start
+        time.sleep(0.5)
 
-        # Create three client connections
+        # create three client connections
         clients = []
         for _ in range(3):
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client.connect(('localhost', self.test_port))
             clients.append(client)
 
-        # Send message from first client
+        # send a message from the first client
         test_message = "Hello from client1"
         try:
             send_message(clients[0], test_message)
         except:
-            pass  # Ignore errors from closed sockets
+            pass  # ignore errors from closed sockets
         
-        # Verify message received by other clients
+        # check if the other clients received the message
         for client in clients[1:]:
             try:
                 received = receive_message(client)
                 self.assertEqual(received, test_message, "Message not received correctly")
             except:
-                pass  # Ignore errors from closed sockets
+                pass  # ignore errors from closed sockets
 
-        # Clean up
+        # clean up
         for client in clients:
             try:
                 client.close()
@@ -142,25 +165,27 @@ class TestChatSystem(unittest.TestCase):
                 pass
 
     def test_client_disconnection(self):
-        """Test server handling of client disconnection."""
-        # Start mock server on a different port
+        """test that the server handles client disconnections properly."""
+        # start our mock server on a different port
         self.test_port = PRIMARY_PORT + 300
         self.server_thread = threading.Thread(target=self.mock_server, daemon=True)
         self.server_thread.start()
-        time.sleep(0.5)  # Wait for server to start
+        # wait for the server to start
+        time.sleep(0.5)
 
-        # Create and connect client
+        # create and connect a client
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect(('localhost', self.test_port))
         
-        # Disconnect client
+        # disconnect the client
         try:
             client.close()
         except:
             pass
-        time.sleep(0.5)  # Wait for server to process disconnection
+        # wait for the server to notice
+        time.sleep(0.5)
         
-        # Verify client was removed from server's client list
+        # check that the client was removed from the server's list
         self.assertNotIn(client, self.clients, "Client not removed after disconnection")
 
 if __name__ == '__main__':
