@@ -16,6 +16,12 @@ kill_port() {
     fi
 }
 
+# Get username
+read -p "Enter your username: " username
+if [ -z "$username" ]; then
+    username="Anonymous"
+fi
+
 # Get local IP address
 LOCAL_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)
 
@@ -53,9 +59,9 @@ if [[ $start_servers == "y" ]]; then
     # Set up trap to catch Ctrl+C and cleanup
     trap cleanup SIGINT SIGTERM
 
-    # Start GUI client
+    # Start GUI client with username
     echo "Starting chat client..."
-    python3 client_gui.py
+    python3 client_gui.py "$username"
 
     # Keep script running
     wait
@@ -63,5 +69,5 @@ else
     # Just start the client
     read -p "Enter the IP address of the chat server: " server_ip
     echo "Starting chat client..."
-    python3 client_gui.py $server_ip
+    python3 client_gui.py "$username" "$server_ip"
 fi 

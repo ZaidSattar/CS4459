@@ -7,9 +7,10 @@ import sys
 from common import PRIMARY_PORT, send_message, receive_message
 
 class ChatClientGUI:
-    def __init__(self, root, server_ip=None):
+    def __init__(self, root, username="Anonymous", server_ip=None):
         self.root = root
-        self.root.title("Distributed Chat Client")
+        self.username = username
+        self.root.title(f"Chat Client - {username}")
         self.root.geometry("600x400")
         
         # Connection frame
@@ -88,7 +89,7 @@ class ChatClientGUI:
             self.receive_thread = threading.Thread(target=self.receive_messages, daemon=True)
             self.receive_thread.start()
             
-            self.display_message("System", "Connected to server")
+            self.display_message("System", f"Connected to server as {self.username}")
             
         except Exception as e:
             self.display_message("System", f"Connection error: {str(e)}")
@@ -117,8 +118,10 @@ class ChatClientGUI:
         message = self.message_input.get()
         if message:
             try:
-                send_message(self.socket, message)
-                self.display_message("You", message)
+                # Send message with username
+                full_message = f"{self.username}: {message}"
+                send_message(self.socket, full_message)
+                self.display_message(self.username, message)
                 self.message_input.delete(0, tk.END)
             except Exception as e:
                 self.display_message("System", f"Error sending message: {str(e)}")
@@ -134,7 +137,8 @@ class ChatClientGUI:
                 if not message:
                     break
                     
-                self.display_message("Server", message)
+                # Display received message
+                self.display_message("", message)
                 
             except Exception as e:
                 if self.is_running:
@@ -144,7 +148,10 @@ class ChatClientGUI:
 
     def display_message(self, sender, message):
         self.message_display.config(state=tk.NORMAL)
-        self.message_display.insert(tk.END, f"{sender}: {message}\n")
+        if sender:
+            self.message_display.insert(tk.END, f"{sender}: {message}\n")
+        else:
+            self.message_display.insert(tk.END, f"{message}\n")
         self.message_display.see(tk.END)
         self.message_display.config(state=tk.DISABLED)
 
@@ -168,6 +175,7 @@ class ChatClientGUI:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    server_ip = sys.argv[1] if len(sys.argv) > 1 else None
-    app = ChatClientGUI(root, server_ip)
+    username = sys.argv[1] if len(sys.argv) > 1 else "Anonymous"
+    server_ip = sys.argv[2] if len(sys.argv) > 2 else None
+    app = ChatClientGUI(root, username, server_ip)
     root.mainloop() 
